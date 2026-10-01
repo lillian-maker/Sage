@@ -4,6 +4,7 @@ from pathlib import Path
 import base64
 import re
 import json
+import colorsys
 
 ROOT = Path(__file__).resolve().parent
 BLOCKS = {
@@ -86,6 +87,22 @@ def build_redesign():
     destination.mkdir(exist_ok=True)
     index = read_text("src/redesign/index.html")
     (destination / "index.html").write_text(index, encoding="utf-8")
+    # A homepage-only color comparison derived from the same source and layout.
+    blue_index = index.replace('href="redesign.css"', 'href="redesign-blue.css"').replace('<title>Sage ·', '<title>Sage 蓝色对比 ·')
+    (destination / "index-blue.html").write_text(blue_index, encoding="utf-8")
+    def blue_color(match):
+        value = match.group(0)[1:]
+        reference_colors = {"7254ce": "479afb", "6244bd": "2582ee", "e4d9fa": "96ccfb", "523a83": "173e69"}
+        if value.lower() in reference_colors:
+            return '#' + reference_colors[value.lower()]
+        rgb = value[:6] if len(value) >= 6 else ''.join(c * 2 for c in value)
+        h, l, s = colorsys.rgb_to_hls(*(int(rgb[i:i+2], 16) / 255 for i in (0, 2, 4)))
+        if not (235 <= h * 360 <= 310 and s > .1):
+            return match.group(0)
+        channels = colorsys.hls_to_rgb(212 / 360, l, s)
+        return '#' + ''.join(f'{round(c * 255):02x}' for c in channels) + (value[6:] if len(value) == 8 else '')
+    blue_css = re.sub(r'#[0-9a-fA-F]{8}\b|#[0-9a-fA-F]{6}\b|#[0-9a-fA-F]{3}\b', blue_color, read_text("src/redesign/redesign.css"))
+    (destination / "redesign-blue.css").write_text(blue_css, encoding="utf-8")
     header = re.search(r'<a class="skip-link".*?</header>.*?</p>', index, re.S).group()
     footer = re.search(r'<footer class="r-footer".*?</dialog>', index, re.S).group()
     pages = {
@@ -119,7 +136,7 @@ def build_redesign():
             dialogs = ""
         content = f'<!doctype html><html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="robots" content="noindex"><title>Sage · {title}</title><link rel="icon" href="sage-mark.svg" type="image/svg+xml"><link rel="stylesheet" href="redesign.css"><link rel="stylesheet" href="{bundle}.css"></head><body class="sage-redesign page-{page}">{public_header}{main}{dialogs}{footer}{scripts}</body></html>'
         (destination / f"{page}.html").write_text(content, encoding="utf-8")
-    for name in ["redesign.css", "redesign.js", "site-shell.js", "sage-mark.svg",
+    for name in ["redesign.css", "redesign.js", "globe-hero.css", "globe-hero.js", "site-shell.js", "sage-mark.svg",
                  "catalog.css", "catalog.js", "catalog-data.js", "info-pages.css",
                  "info-pages.js", "experience.css", "experience.js", "team-page.css", "team-page.js"]:
         (destination / name).write_text(read_text(f"src/redesign/{name}"), encoding="utf-8")

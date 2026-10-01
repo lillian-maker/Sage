@@ -1388,3 +1388,6 @@ window.SAGE_CATALOG = {
     "数据与 AI 运行"
   ]
 };
+
+// Resolve assets relative to this catalog, independent of the page route.
+{ const base = document.currentScript.src; window.SAGE_CATALOG.people.forEach(person => { person.avatar = new URL(person.avatar, base).href; }); }
